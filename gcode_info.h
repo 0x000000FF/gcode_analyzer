@@ -1,12 +1,16 @@
 #ifndef GCODE_INFO_H
 #define GCODE_INFO_H
 #include <QString>
+#include <QtCore>
 
 class gcode_info
 {
 public:
     gcode_info();
 private:
+    QFile f_gcode;
+    QTextStream gcode_stream;
+
     double model_size[3];
     double filament_length;
     double filament_weight;

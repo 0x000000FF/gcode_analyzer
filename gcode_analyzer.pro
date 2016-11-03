@@ -15,3 +15,6 @@ SOURCES += main.cpp \
 
 HEADERS += \
     gcode_info.h
+
+target.path = /home/qt
+INSTALLS += target
