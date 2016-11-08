@@ -10,6 +10,7 @@ int main(int argc, char *argv[])
     qDebug()<<"start"<<endl;
 
     mygcode->analyzer(QString(argv[1]));
+    mygcode->print_info();
 
     return a.exec();
 }
