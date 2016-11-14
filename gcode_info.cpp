@@ -111,8 +111,8 @@ int gcode_info::analyzer(QString file)
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
                     f = str.mid((i + 1),(j - i - 1)).toDouble();
-                    t += (e - current_e) / (f / 3600);
-                    current_e = e;
+                    t += (count_e + last_e - current_e) / (f / 3600);
+                    current_e = count_e + last_e;
                     i = j;
                     break;
 
@@ -152,6 +152,22 @@ int gcode_info::analyzer(QString file)
                 }
             }
         }
+        else if (str.startsWith('M'))
+        {
+            int sp,np;
+            if ( this->temper_ex == 0 && (str.contains("M104") || str.contains("M109")) )
+            {
+                sp = str.indexOf('S',0);
+                np = str.indexOf(QRegularExpression("([0-9][^0-9])"), sp);
+                this->temper_ex = str.mid(sp+1,np).toDouble();
+            }
+            else if ( this->temper_ex == 0 &&  (str.contains("M140") || str.contains("M190")) )
+            {
+                sp = str.indexOf('S',0);
+                np = str.indexOf(QRegularExpression("([0-9][^0-9])"), sp);
+                this->temper_bed = str.mid(sp+1,np).toDouble();
+            }
+        }
     }
     count_e += last_e;
 
@@ -161,38 +177,59 @@ int gcode_info::analyzer(QString file)
     this->filament_length = count_e;// mm
     this->filament_weight = count_e * 3 / 1000;// g
     this->layers = layers;
-    this->print_time = t;
+    this->print_time = t; // s
     this->layer_count = layers;
-    this->temper_ex = 0.0;
-    this->temper_bed = 0.0;
     this->layers = layerinfo;
 
     qDebug()<<"done \n";
     return 0;
 }
 
+QString md5sum(QString filePath)
+{
+    QFile theFile(filePath);
+    theFile.open(QIODevice::ReadOnly);
+    QByteArray ba = QCryptographicHash::hash(theFile.readAll(),QCryptographicHash::Md5);
+    theFile.close();
+    return QString(ba.toHex().constData());
+    qDebug() << ba.toHex().constData();
+}
+
 int gcode_info::print_info()
 {
-    QFile out_gcode(this->file_name+"info");
+    QString md5 = md5sum(this->file_name);
+    QString out_file = this->file_name.mid(0,this->file_name.lastIndexOf('.'))+".info";
+    qDebug()<<out_file;
+    QFile out_gcode(out_file);
+    if (out_gcode.exists())
+    {
+        out_gcode.remove();
+    }
+    out_gcode.setFileName(out_file);
     if (!out_gcode.open(QIODevice::ReadWrite | QIODevice::Text))
     {
         return -1;
     }
     QTextStream out_stream(&out_gcode);
 
-    out_stream<<"#mostfunPro"  <<endl;
-    out_stream<<"maxsize="     <<QString::number(this->model_size[0])<<","   \
-                               <<QString::number(this->model_size[1])<<","   \
-                               <<QString::number(this->model_size[2])<<endl;
+    out_stream<<"[mostfunPro]"     <<endl;
+    out_stream<<"md5sum="          <<md5 <<endl;
+    out_stream<<"printing_state=0" <<endl; //0:normal;1:paused
+    out_stream<<"max_x="           <<QString::number(this->model_size[0])<<endl;
+    out_stream<<"max_y="           <<QString::number(this->model_size[1])<<endl;
+    out_stream<<"max_z="           <<QString::number(this->model_size[2])<<endl;
     out_stream<<"filament_length=" <<this->filament_length  <<endl;
     out_stream<<"filament_weight=" <<this->filament_weight  <<endl;
     out_stream<<"layer_count="     <<this->layer_count      <<endl;
+    out_stream<<"current_layer=0"                           <<endl;
     out_stream<<"temper_ex="       <<this->temper_ex        <<endl;
     out_stream<<"temper_bed="      <<this->temper_bed       <<endl;
     out_stream<<"print_time="      <<this->print_time       <<endl;
     out_stream<<"layers="          <<this->layers           <<endl;
-
     out_gcode.close();
+
+//    QProcess *p = new QProcess(this);
+//    p->start("md5sum "+ out_file + " | cut -d ' ' -f 1 >> " + out_file);
 
     qDebug()<<this;
 }

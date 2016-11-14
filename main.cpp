@@ -12,5 +12,7 @@ int main(int argc, char *argv[])
     mygcode->analyzer(QString(argv[1]));
     mygcode->print_info();
 
+    exit(0);
+
     return a.exec();
 }
