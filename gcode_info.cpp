@@ -214,7 +214,13 @@ int gcode_info::print_info()
 
     out_stream<<"[mostfunPro]"     <<endl;
     out_stream<<"md5sum="          <<md5 <<endl;
-    out_stream<<"printing_state=0" <<endl; //0:normal;1:paused
+    out_stream<<"printing_state=normal" <<endl;
+    out_stream<<"start_line=0" <<endl;
+    out_stream<<"x_pos=0" <<endl;
+    out_stream<<"y_pos=0" <<endl;
+    out_stream<<"z_pos=0" <<endl;
+    out_stream<<"e_pos=0" <<endl;
+    out_stream<<"f_pos=0" <<endl;
     out_stream<<"max_x="           <<QString::number(this->model_size[0])<<endl;
     out_stream<<"max_y="           <<QString::number(this->model_size[1])<<endl;
     out_stream<<"max_z="           <<QString::number(this->model_size[2])<<endl;
