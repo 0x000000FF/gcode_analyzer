@@ -21,6 +21,7 @@ gcode_info::gcode_info()
 int gcode_info::analyzer(QString file)
 {
     this->file_name = file;
+    qDebug() << file;
 
     this->f_gcode.setFileName(file);
     if ( !this->f_gcode.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -32,6 +33,7 @@ int gcode_info::analyzer(QString file)
 
     double max_x = 0,max_y = 0,max_z = 0;
     double x = 0.0,y = 0.0,z = 0.0,e = 0.0,last_e = 0.0,count_e = 0.0,last_z = 0.0,current_e = 0.0;
+    bool found_Z = false;
     double f = 3600;
     unsigned g = 0;
     unsigned int t = 0;
@@ -61,7 +63,8 @@ int gcode_info::analyzer(QString file)
 //            qDebug()<<"gcode lline"<<str;
             l = str.size();
             e = -10000;
-            newlayer_flag = -2;
+            found_Z = false;
+            newlayer_flag = 0;
             for (i = 0;i < l;i++)
             {
                 switch (str.at(i).toLatin1()) {
@@ -73,6 +76,7 @@ int gcode_info::analyzer(QString file)
                     i = j;
                     break;
                 case 'X':
+                    newlayer_flag++;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
@@ -81,6 +85,7 @@ int gcode_info::analyzer(QString file)
                     i = j;
                     break;
                 case 'Y':
+                    newlayer_flag++;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
@@ -89,7 +94,7 @@ int gcode_info::analyzer(QString file)
                     i = j;
                     break;
                 case 'Z':
-                    newlayer_flag++;
+                    found_Z = true;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
@@ -140,7 +145,7 @@ int gcode_info::analyzer(QString file)
             {
                 last_e = abs ? e : (last_e + e);
             }
-            if (newlayer_flag == 0)
+            if (found_Z && newlayer_flag > 0)
             {
 //                qDebug()<<"--"<<last_z<<z;
                 if((z > last_z) && (z - last_z) < 0.5)
@@ -199,6 +204,7 @@ int gcode_info::print_info()
 {
     QString md5 = md5sum(this->file_name);
     QString out_file = this->file_name.mid(0,this->file_name.lastIndexOf('.'))+".info";
+    out_file = out_file.toLocal8Bit();
     qDebug()<<out_file;
     QFile out_gcode(out_file);
     if (out_gcode.exists())
