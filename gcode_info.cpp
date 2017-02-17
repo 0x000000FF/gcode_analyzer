@@ -33,18 +33,17 @@ int gcode_info::analyzer(QString file)
 
     double max_x = 0,max_y = 0,max_z = 0;
     double x = 0.0,y = 0.0,z = 0.0,e = 0.0,last_e = 0.0,count_e = 0.0,last_z = 0.0,current_e = 0.0;
-    bool found_Z = false;
     double f = 3600;
-    unsigned g = 0;
     unsigned int t = 0;
     bool abs = true;
-    int newlayer_flag = -2;
     int layers = 0;
     int i = 0,j = 0,l =0;
     int line = 0;
     QString str = "";
     QString layerinfo = "";
-
+    bool flag_e = false;
+    double set_e = 0;
+    int z_line = 0;
     qDebug()<<"load file success";
 
     for(str = this->gcode_stream.readLine();!this->gcode_stream.atEnd();str = this->gcode_stream.readLine(),line++)
@@ -63,20 +62,34 @@ int gcode_info::analyzer(QString file)
 //            qDebug()<<"gcode lline"<<str;
             l = str.size();
             e = -10000;
-            found_Z = false;
-            newlayer_flag = 0;
+//            newlayer_flag = 0;
             for (i = 0;i < l;i++)
             {
-                switch (str.at(i).toLatin1()) {
+                switch (str.at(i).toLatin1())
+                {
                 case 'G':
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
-                    g = str.mid((i + 1),(j - i -1)).toInt();
+                    switch (str.mid((i + 1),(j - i -1)).toInt())
+                    {
+                    case 90:
+                        abs = true;
+                        break;
+                    case 91:
+                        abs = false;
+                        break;
+                    case 92:
+                        count_e += last_e;
+                        last_e = 0.0;
+                        break;
+                    default:
+                        break;
+                    }
                     i = j;
                     break;
                 case 'X':
-                    newlayer_flag++;
+//                    newlayer_flag++;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
@@ -85,7 +98,7 @@ int gcode_info::analyzer(QString file)
                     i = j;
                     break;
                 case 'Y':
-                    newlayer_flag++;
+//                    newlayer_flag++;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
@@ -94,13 +107,20 @@ int gcode_info::analyzer(QString file)
                     i = j;
                     break;
                 case 'Z':
-                    found_Z = true;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
                     z = str.mid((i + 1),(j - i - 1)).toDouble();
                     max_z = max_z > z ? max_z : z;
                     i = j;
+                    if((z > last_z) && flag_e)
+                    {
+                        layers ++;
+                        layerinfo.append(QString::number(z_line,10)+",");
+                        last_z = z;
+                    }
+                    flag_e = false;
+                    z_line = line;
 //                    qDebug()<<last_z<<z;
                     break;
                 case 'E':
@@ -109,15 +129,19 @@ int gcode_info::analyzer(QString file)
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
                     e = str.mid((i + 1),(j - i - 1)).toDouble();
                     i = j;
+                    if (e > 0)
+                    {
+                        flag_e = true;
+                    }
                     break;
                 case 'F':
-                    newlayer_flag++;
+//                    newlayer_flag++;
+                    t += (count_e + last_e - current_e) / (f / 3600);
+                    current_e = count_e + last_e;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
                     f = str.mid((i + 1),(j - i - 1)).toDouble();
-                    t += (count_e + last_e - current_e) / (f / 3600);
-                    current_e = count_e + last_e;
                     i = j;
                     break;
 
@@ -127,34 +151,10 @@ int gcode_info::analyzer(QString file)
                     break;
                 }
             }
-            switch (g) {
-            case 90:
-                abs = true;
-                break;
-            case 91:
-                abs = false;
-                break;
-            case 92:
-                count_e += last_e;
-                last_e = 0.0;
-                break;
-            default:
-                break;
-            }
+
             if (e != -10000)
             {
                 last_e = abs ? e : (last_e + e);
-            }
-            if (found_Z && newlayer_flag > 0)
-            {
-//                qDebug()<<"--"<<last_z<<z;
-                if((z > last_z) && (z - last_z) < 0.5)
-                {
-//                    qDebug()<<"++"<<last_z<<z;
-                    layers ++;
-                    last_z = z;
-                    layerinfo.append(QString::number(line,10)+",");
-                }
             }
         }
         else if (str.startsWith('M'))
@@ -173,8 +173,8 @@ int gcode_info::analyzer(QString file)
                 this->temper_bed = str.mid(sp+1,np).toDouble();
             }
         }
+        count_e += last_e;
     }
-    count_e += last_e;
 
     this->model_size[0] = max_x;//mm
     this->model_size[1] = max_y;//mm
