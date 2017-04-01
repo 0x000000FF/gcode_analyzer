@@ -1,5 +1,8 @@
 #include "gcode_info.h"
 #include <QDebug>
+#include <QPoint>
+#include <QImage>
+#include <QList>
 
 gcode_info::gcode_info()
 {
@@ -31,7 +34,7 @@ int gcode_info::analyzer(QString file)
     }
     this->gcode_stream.setDevice(&this->f_gcode);
 
-    double max_x = 0,max_y = 0,max_z = 0;
+    double max_x = 0,min_x = 1000,max_y = 0,max_z = 0,lmax_x = 0,lmin_x = 10000;
     double x = 0.0,y = 0.0,z = 0.0,e = 0.0,last_e = 0.0,count_e = 0.0,last_z = 0.0,current_e = 0.0;
     double f = 3600;
     unsigned int t = 0;
@@ -44,6 +47,9 @@ int gcode_info::analyzer(QString file)
     bool flag_e = false;
     double set_e = 0;
     int z_line = 0;
+    QList<QPoint> outline;
+    QImage pic(440,320,QImage::Format_ARGB32_Premultiplied);
+    pic.fill(Qt::gray);
     qDebug()<<"load file success";
 
     for(str = this->gcode_stream.readLine();!this->gcode_stream.atEnd();str = this->gcode_stream.readLine(),line++)
@@ -95,7 +101,11 @@ int gcode_info::analyzer(QString file)
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
                     x = str.mid((i + 1),(j - i -1)).toDouble();
                     max_x = max_x > x ? max_x : x;
+//                    min_x = min_x < x ? min_x : x;
+                    lmax_x = lmax_x > x ? lmax_x : x;
+                    lmin_x = lmin_x < x ? lmin_x : x;
                     i = j;
+
                     break;
                 case 'Y':
 //                    newlayer_flag++;
@@ -117,6 +127,9 @@ int gcode_info::analyzer(QString file)
                     {
                         layers ++;
                         layerinfo.append(QString::number(z_line,10)+",");
+                        outline.append(QPoint(lmin_x,lmax_x));
+                        lmin_x = 10000;
+                        lmax_x = 0;
                         last_z = z;
                     }
                     flag_e = false;
@@ -132,6 +145,7 @@ int gcode_info::analyzer(QString file)
                     if (e > 0)
                     {
                         flag_e = true;
+                        pic.setPixelColor(x*2,z*2,QColor(0xff, 0, 0, 0));
                     }
                     break;
                 case 'F':
@@ -186,7 +200,20 @@ int gcode_info::analyzer(QString file)
     this->layer_count = layers;
     this->layers = layerinfo;
 
+    qDebug() << outline;
+    qDebug() << min_x;
+
+    pic = pic.mirrored(false,true);
+//    pic = pic.scaled(400,300);
+    QString picname = this->file_name.mid(0,this->file_name.lastIndexOf('.'))+".png";
+    pic.save(picname);
     qDebug()<<"done \n";
+
+//    QImage qq(100,100,QImage::Format_ARGB32);
+//    qq.fill(Qt::white);
+//    qq.setPixel(20,20,Qt::black);
+//    qq.save("D:test.jpg");
+
     return 0;
 }
 
