@@ -34,7 +34,7 @@ int gcode_info::analyzer(QString file)
     }
     this->gcode_stream.setDevice(&this->f_gcode);
 
-    double max_x = 0,min_x = 1000,max_y = 0,max_z = 0,lmax_x = 0,lmin_x = 10000;
+    double max_x = 0,min_x = 1000,max_y = 0,max_z = 0,lmax_x = 0,lmin_x = 10000,last_x = -1;
     double x = 0.0,y = 0.0,z = 0.0,e = 0.0,last_e = 0.0,count_e = 0.0,last_z = 0.0,current_e = 0.0;
     double f = 3600;
     unsigned int t = 0;
@@ -45,6 +45,7 @@ int gcode_info::analyzer(QString file)
     QString str = "";
     QString layerinfo = "";
     bool flag_e = false;
+    bool gcode_e = false;
     double set_e = 0;
     int z_line = 0;
     QList<QPoint> outline;
@@ -68,6 +69,7 @@ int gcode_info::analyzer(QString file)
 //            qDebug()<<"gcode lline"<<str;
             l = str.size();
             e = -10000;
+            gcode_e = false;
 //            newlayer_flag = 0;
             for (i = 0;i < l;i++)
             {
@@ -137,6 +139,7 @@ int gcode_info::analyzer(QString file)
 //                    qDebug()<<last_z<<z;
                     break;
                 case 'E':
+                    gcode_e = true;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
@@ -145,7 +148,7 @@ int gcode_info::analyzer(QString file)
                     if (e > 0)
                     {
                         flag_e = true;
-                        pic.setPixelColor(x*2,z*2,QColor(0xff, 0, 0, 0));
+
                     }
                     break;
                 case 'F':
@@ -163,6 +166,38 @@ int gcode_info::analyzer(QString file)
                     i = l;
                 default:
                     break;
+                }
+            }
+
+            if (gcode_e == false)
+            {
+                last_x = -1;
+            }
+
+            else
+            {
+                if(last_x < 0)
+                {
+                    last_x = x;
+                }
+                else
+                {
+                    if(z>0.7)
+                    {
+                        double a = last_x > x ? x : last_x;
+                        double b = last_x > x ? last_x : x;
+                        for (double i = a;i < b;i++)
+                        {
+                            pic.setPixelColor(i*2,z*2,QColor(0xff, 0, 0, 0));
+                            pic.setPixelColor(i*2+1,z*2,QColor(0xff, 0, 0, 0));
+                        }
+        //                                pic.setPixelColor(a*2,z*2,QColor(0xff, 0, 0, 0));
+        //                                pic.setPixelColor(b*2,z*2,QColor(0xff, 0, 0, 0));
+        //                                pic.setPixelColor(x*2+1,z*2,QColor(0xff, 0, 0, 0));
+        //                                pic.setPixelColor(last_x*2+1,z*2,QColor(0xff, 0, 0, 0));
+                    }
+
+                    last_x = x;
                 }
             }
 
@@ -204,7 +239,7 @@ int gcode_info::analyzer(QString file)
     qDebug() << min_x;
 
     pic = pic.mirrored(false,true);
-//    pic = pic.scaled(400,300);
+//    pic = pic.scaled(440,320);
     QString picname = this->file_name.mid(0,this->file_name.lastIndexOf('.'))+".png";
     pic.save(picname);
     qDebug()<<"done \n";
