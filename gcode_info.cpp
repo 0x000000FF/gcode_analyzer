@@ -3,6 +3,7 @@
 #include <QPoint>
 #include <QImage>
 #include <QList>
+#include <regex>
 
 gcode_info::gcode_info()
 {
@@ -35,7 +36,7 @@ int gcode_info::analyzer(QString file)
     this->gcode_stream.setDevice(&this->f_gcode);
 
     double max_x = 0,min_x = 1000,max_y = 0,max_z = 0,lmax_x = 0,lmin_x = 10000,last_x = -1;
-    double x = 0.0,y = 0.0,z = 0.0,e = 0.0,last_e = 0.0,count_e = 0.0,last_z = 0.0,current_e = 0.0;
+    double x = 0.0,y = 0.0,z = 0.0,e = 0.0,last_e = 0.0,count_e = 0.0,last_z = 0.0,e_offset = -1;
     double f = 3600;
     unsigned int t = 0;
     bool abs = true;
@@ -46,7 +47,6 @@ int gcode_info::analyzer(QString file)
     QString layerinfo = "";
     bool flag_e = false;
     bool gcode_e = false;
-    double set_e = 0;
     int z_line = 0;
     QList<QPoint> outline;
     QImage pic(440,320,QImage::Format_ARGB32_Premultiplied);
@@ -55,6 +55,7 @@ int gcode_info::analyzer(QString file)
 
     for(str = this->gcode_stream.readLine();!this->gcode_stream.atEnd();str = this->gcode_stream.readLine(),line++)
     {
+
         if (str.length() < 2)
         {
             continue;
@@ -62,15 +63,28 @@ int gcode_info::analyzer(QString file)
         if (str.startsWith(';'))
         {
 //            qDebug()<<"skip \n";
+            if (str.contains("Print time"))
+            {
+                QRegExp regExp("(\\d+)");
+                regExp.indexIn(str);
+                int pos = 0;
+                while ((pos = regExp.indexIn(str, pos)) != -1)
+                {
+                    t = t * 60 + regExp.cap(0).toInt();
+                    pos += regExp.matchedLength();
+                }
+            }
         }
 
         else if (str.startsWith('G'))
         {
 //            qDebug()<<"gcode lline"<<str;
             l = str.size();
-            e = -10000;
+            e = -1;
             gcode_e = false;
 //            newlayer_flag = 0;
+//            QRegExp regExp = QRegExp();
+//            QRegExp regExp("\\d+");
             for (i = 0;i < l;i++)
             {
                 switch (str.at(i).toLatin1())
@@ -81,6 +95,10 @@ int gcode_info::analyzer(QString file)
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
                     switch (str.mid((i + 1),(j - i -1)).toInt())
                     {
+                    case 0:
+                        break;
+                    case 1:
+                        break;
                     case 90:
                         abs = true;
                         break;
@@ -88,9 +106,15 @@ int gcode_info::analyzer(QString file)
                         abs = false;
                         break;
                     case 92:
-                        count_e += last_e;
-                        last_e = 0.0;
-                        break;
+//                        regExp.setPattern("[0-9,.,-]+");
+//                        if(regExp.indexIn(str,4) > 0)
+//                        {
+//                            qDebug()<< regExp.cap(0);
+//                            e_offset = regExp.cap(0).toFloat();
+//                        }
+//                        t += (count_e - last_e) / (f / 3600);
+                        last_e = count_e;
+                        goto next_line;
                     default:
                         break;
                     }
@@ -153,8 +177,8 @@ int gcode_info::analyzer(QString file)
                     break;
                 case 'F':
 //                    newlayer_flag++;
-                    t += (count_e + last_e - current_e) / (f / 3600);
-                    current_e = count_e + last_e;
+//                    t += (count_e - last_e) / (f / 3600);
+//                    last_e = count_e;
                     j = str.indexOf(' ',(i + 1));
                     j = j < 0 ? l : j;
 //                    qDebug()<<str.mid((i + 1),(j - i -1));
@@ -191,19 +215,14 @@ int gcode_info::analyzer(QString file)
                             pic.setPixelColor(i*2,z*2,QColor(0xff, 0, 0, 0));
                             pic.setPixelColor(i*2+1,z*2,QColor(0xff, 0, 0, 0));
                         }
-        //                                pic.setPixelColor(a*2,z*2,QColor(0xff, 0, 0, 0));
-        //                                pic.setPixelColor(b*2,z*2,QColor(0xff, 0, 0, 0));
-        //                                pic.setPixelColor(x*2+1,z*2,QColor(0xff, 0, 0, 0));
-        //                                pic.setPixelColor(last_x*2+1,z*2,QColor(0xff, 0, 0, 0));
                     }
-
                     last_x = x;
                 }
             }
 
-            if (e != -10000)
+            if (e != -1)
             {
-                last_e = abs ? e : (last_e + e);
+                count_e = abs ? (e - e_offset) : (count_e + e - e_offset);
             }
         }
         else if (str.startsWith('M'))
@@ -222,7 +241,7 @@ int gcode_info::analyzer(QString file)
                 this->temper_bed = str.mid(sp+1,np).toDouble();
             }
         }
-        count_e += last_e;
+next_line:{}
     }
 
     this->model_size[0] = max_x;//mm
